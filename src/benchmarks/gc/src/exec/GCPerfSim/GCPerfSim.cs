@@ -2420,6 +2420,12 @@ class MemoryAlloc
         {
             Args args;
             args = ArgsParser.Parse(argsStrs);
+            Process process = Process.GetCurrentProcess();
+            Console.WriteLine("Environment Variables: ");
+            foreach( var env in process.StartInfo.Environment)
+            {
+                Console.WriteLine($"{env.Key}: {env.Value}");
+            }
 
             TestResult testResult = MainInner(args);
 
