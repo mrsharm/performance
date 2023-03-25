@@ -174,6 +174,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Reflection;
+using System.Collections;
 
 #if STATISTICS
 class Statistics
@@ -2422,9 +2423,9 @@ class MemoryAlloc
             args = ArgsParser.Parse(argsStrs);
             Process process = Process.GetCurrentProcess();
             Console.WriteLine("Environment Variables: ");
-            foreach( var env in process.StartInfo.Environment)
+            foreach(var de in Environment.GetEnvironmentVariables()) 
             {
-                Console.WriteLine($"{env.Key}: {env.Value}");
+                Console.WriteLine($"{de}");
             }
 
             TestResult testResult = MainInner(args);
