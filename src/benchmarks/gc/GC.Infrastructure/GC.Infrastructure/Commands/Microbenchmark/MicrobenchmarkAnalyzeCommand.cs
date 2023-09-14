@@ -14,7 +14,7 @@ namespace GC.Infrastructure.Commands.Microbenchmark
         {
             [Description("Configuration Path.")]
             [CommandOption("-c|--configuration")]
-            public string? ConfigurationPath { get; init; }
+            public required string ConfigurationPath { get; init; }
         }
 
         public override int Execute([NotNull] CommandContext context, [NotNull] MicrobenchmarkAnalyzeSettings settings)

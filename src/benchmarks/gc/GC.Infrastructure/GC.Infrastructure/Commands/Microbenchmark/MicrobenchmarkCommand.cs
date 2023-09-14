@@ -12,7 +12,6 @@ using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics;
 using System.Text;
-using System.Configuration;
 
 namespace GC.Infrastructure.Commands.Microbenchmark
 {
@@ -30,17 +29,17 @@ namespace GC.Infrastructure.Commands.Microbenchmark
 
     internal sealed class MicrobenchmarkCommand : Command<MicrobenchmarkCommand.MicrobenchmarkSettings>
     {
-        public static string ReplaceInvalidChars(string filename)
-        {
-            filename = filename.Replace(" ", "").Replace("(", "_").Replace(")", "_").Replace("\"", "");
-            return string.Join("_", filename.Split(Path.GetInvalidFileNameChars())).Replace(" ", "").Replace("(", "_").Replace(")", "_");
-        }
-
         public sealed class MicrobenchmarkSettings : CommandSettings
         {
             [Description("Path to Configuration.")]
             [CommandOption("-c|--configuration")]
-            public string? ConfigurationPath { get; init; }
+            public required string ConfigurationPath { get; init; }
+        }
+
+        public static string ReplaceInvalidChars(string filename)
+        {
+            filename = filename.Replace(" ", "").Replace("(", "_").Replace(")", "_").Replace("\"", "");
+            return string.Join("_", filename.Split(Path.GetInvalidFileNameChars())).Replace(" ", "").Replace("(", "_").Replace(")", "_");
         }
 
         public override int Execute([NotNull] CommandContext context, [NotNull] MicrobenchmarkSettings settings)
@@ -57,37 +56,42 @@ namespace GC.Infrastructure.Commands.Microbenchmark
 
         public static MicrobenchmarkOutputResults RunMicrobenchmarks(MicrobenchmarkConfiguration configuration)
         {
-            Core.Utilities.TryCreateDirectory(configuration.Output.Path);
+            Core.Utilities.TryCreateDirectory(configuration.Output!.Path);
+
+            // Preserve the current directory.
             string currentDirectory = Directory.GetCurrentDirectory();
 
             // Extract the invocation counts.
             Dictionary<string, long> invocationCountCache = new();
-            if (!string.IsNullOrEmpty(configuration.MicrobenchmarkConfigurations.InvocationCountPath))
+            if (!string.IsNullOrEmpty(configuration.MicrobenchmarkConfigurations!.InvocationCountPath))
             {
                 string[] lines = File.ReadAllLines(configuration.MicrobenchmarkConfigurations.InvocationCountPath);
                 for (int lineCount = 1; lineCount < lines.Length; lineCount++)
                 {
                     string[] split = lines[lineCount].Split("|", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                    // TODO: do some precondition checks: Ensure that the parsing works and if not, don't include it.
                     invocationCountCache[split[0]] = long.Parse(split[1]);
                 }
             }
 
             Dictionary<string, ProcessExecutionDetails> executionDetails = new();
 
-            // Extract the benchmarks to run from the filter.
-            string filter = configuration.MicrobenchmarkConfigurations.Filter ?? File.ReadAllText(configuration.MicrobenchmarkConfigurations.FilterPath);
+            // Extract the benchmarks to run from the filter. This can either be provided in the configuration or added in a filter file.
+            string filter = configuration.MicrobenchmarkConfigurations.Filter ?? File.ReadAllText(configuration.MicrobenchmarkConfigurations.FilterPath!);
             IEnumerable<string> benchmarks = filter.Split("|", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
-            Directory.SetCurrentDirectory(configuration.microbenchmarks_path);
+            Directory.SetCurrentDirectory(configuration.microbenchmarks_path!);
             string collectType = configuration.TraceConfigurations?.Type ?? "none";
 
             HashSet<string> alreadyRunBenchmarks = new();
-            KeyValuePair<string, Run> baselineKVP = configuration.Runs.FirstOrDefault(r => r.Value.is_baseline);
-            Run baseline = baselineKVP.Value;
-            if (baseline == null)
+
+            // If the is_baseline property isn't specified, choose the first run.
+            string baselineKey = configuration.Runs!.FirstOrDefault(r => r.Value.is_baseline).Key;
+            if (string.IsNullOrEmpty(baselineKey))
             {
-                baselineKVP = configuration.Runs.First();
+                baselineKey = configuration.Runs!.First().Key;
             }
+            Run baseline = configuration.Runs![baselineKey];
 
             foreach (var b in benchmarks)
             {
@@ -99,9 +103,9 @@ namespace GC.Infrastructure.Commands.Microbenchmark
                 // Get the invocation count if cached, else compute it.
                 if (!invocationCountCache.TryGetValue(benchmark, out var invocationCount))
                 {
-                    string baselineRunPath = Path.Combine(configuration.Output.Path, $"{baselineKVP.Key}_{benchmarkCleanedName}_InvocationCountRun").Replace("<", "").Replace(">", "");
+                    string baselineRunPath = Path.Combine(configuration.Output.Path, $"{baselineKey}_{benchmarkCleanedName}_InvocationCountRun").Replace("<", "").Replace(">", "");
 
-                    (string, string) baselineFileNameAndCommand = MicrobenchmarkCommandBuilder.Build(configuration, baselineKVP, benchmark, null, baselineRunPath);
+                    (string, string) baselineFileNameAndCommand = MicrobenchmarkCommandBuilder.Build(configuration, new KeyValuePair<string, Run>(baselineKey, baseline), benchmark, null, baselineRunPath);
 
                     // Create the run path directory.
                     Core.Utilities.TryCreateDirectory(baselineRunPath);
@@ -113,21 +117,36 @@ namespace GC.Infrastructure.Commands.Microbenchmark
                         bdnProcess.StartInfo.UseShellExecute = false;
                         bdnProcess.StartInfo.CreateNoWindow = true;
                         bdnProcess.Start();
-                        bdnProcess.WaitForExit((int)configuration.Environment.default_max_seconds * 1000);
+                        bdnProcess.WaitForExit((int)configuration.Environment!.default_max_seconds * 1000);
                     }
 
                     string[] jsonFiles = Directory.GetFiles(baselineRunPath, "*full.json", SearchOption.AllDirectories);
 
-                    // Should only be one if it's a fresh run.
-                    string jsonFile = jsonFiles.First();
+                    // Should only be one if it's a fresh run. If this check fails, this means that the invocation count discerning run has failed.
+                    string? jsonFile = jsonFiles.FirstOrDefault();
+                    if (string.IsNullOrEmpty(jsonFile))
+                    {
+                        AnsiConsole.Markup($"[bold red] Cannot find Microbechmark by filter - skipping {benchmark}. Please ensure that you have the correct microbenchmark filter. [/]\n");
+                        continue;
+                    }
 
-                    MicrobenchmarkResults output = JsonConvert.DeserializeObject<MicrobenchmarkResults>(File.ReadAllText(jsonFile));
+                    MicrobenchmarkResults? output = null; 
+                    try
+                    {
+                        output = JsonConvert.DeserializeObject<MicrobenchmarkResults>(File.ReadAllText(jsonFile!));
+                    }
+
+                    catch (Exception e)
+                    {
+                        AnsiConsole.Markup($"[bold red] Cannot parse the Microbenchmark Results in file: {jsonFile}. Skipping the benchmark: {benchmark}. Failed with the exception: {e.Message} - {Markup.Escape(e.StackTrace!)}[/]\n");
+                        continue;
+                    }
 
                     // Assumption: A particular run, regardless of the parameters, will run ~the same vals.
-                    IEnumerable<long> operationsPerNanos = output.Benchmarks.First().Measurements.Where(m => m.IterationMode == "Workload" && m.IterationStage == "Actual")
+                    IEnumerable<long>? operationsPerNanos = output.Benchmarks!.First().Measurements!.Where(m => m.IterationMode == "Workload" && m.IterationStage == "Actual")
                                                                                                 .Select(m => m.Operations);
                     // For now take the max but we will possibly be sacrificing duration for precision.
-                    invocationCountFromBaseline = operationsPerNanos.Max();
+                    invocationCountFromBaseline = operationsPerNanos!.Max();
                 }
 
                 else
@@ -141,10 +160,7 @@ namespace GC.Infrastructure.Commands.Microbenchmark
                     string runPath = Path.Combine(configuration.Output.Path, run.Key);
 
                     // Create the run path directory.
-                    if (!Directory.Exists(runPath))
-                    {
-                        Directory.CreateDirectory(runPath);
-                    }
+                    Core.Utilities.TryCreateDirectory(runPath);
 
                     // Build the command.
                     (string, string) fileNameAndCommand = MicrobenchmarkCommandBuilder.Build(configuration, run, benchmark, invocationCountFromBaseline);
@@ -165,13 +181,12 @@ namespace GC.Infrastructure.Commands.Microbenchmark
 
                         bdnProcess.OutputDataReceived += (s, e) =>
                         {
-                            consoleOutput.AppendLine(e.Data);
-
+                            consoleOutput.AppendLine(e?.Data);
                         };
 
                         bdnProcess.ErrorDataReceived += (s, e) =>
                         {
-                            consoleError.AppendLine(e.Data);
+                            consoleError.AppendLine(e?.Data);
                         };
 
                         using (TraceCollector traceCollector = new TraceCollector(benchmarkCleanedName, collectType, runPath))

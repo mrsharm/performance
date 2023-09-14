@@ -15,8 +15,8 @@ namespace GC.Infrastructure.Core.Configurations
 
     public class CoreRunInfo
     {
-        public string Path { get; set; }
-        public Dictionary<string, string> environment_variables { get; set; } 
+        public string? Path { get; set; }
+        public Dictionary<string, string>? environment_variables { get; set; } 
     }
 
     public static class ConfigurationChecker
