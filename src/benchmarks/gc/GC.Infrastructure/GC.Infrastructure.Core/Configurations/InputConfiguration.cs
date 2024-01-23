@@ -45,6 +45,15 @@
                 throw new ArgumentException($"{nameof(InputConfigurationParser)}: A path to the microbenchmarks must be provided or exist.");
             }
 
+            // Iterate through all top level environment variables and check for any COMPlus_ based ones.
+            ConfigurationChecker.VerifyEnvironmentVariables(configuration.environment_variables, $"{nameof(InputConfigurationParser)} - Environment Variables for {Path.GetFileNameWithoutExtension(path)}:");
+
+            // Iterate through the coreruns and check if those environments contain any COMPlus_ based ones.
+            foreach (var corerun in configuration.coreruns)
+            {
+                ConfigurationChecker.VerifyEnvironmentVariables(corerun.Value.environment_variables, $"{nameof(InputConfigurationParser)} - Run: {corerun.Key}");
+            }
+
             return configuration;
         }
     }

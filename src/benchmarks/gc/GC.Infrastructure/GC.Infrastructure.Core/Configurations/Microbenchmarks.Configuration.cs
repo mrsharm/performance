@@ -80,6 +80,12 @@ namespace GC.Infrastructure.Core.Configurations.Microbenchmarks
                 throw new ArgumentNullException($"{nameof(MicrobenchmarkConfigurationParser)}: {nameof(configuration.TraceConfigurations.Type)} is null or empty. This value should be specified if the a 'trace_configurations' node is added");
             }
 
+            // Check if COMPlus_ is specified in any of the environment variables.
+            foreach (var run in configuration.Runs)
+            {
+                ConfigurationChecker.VerifyEnvironmentVariables(run.Value.environment_variables, $"{nameof(MicrobenchmarkConfigurationParser)}: For Run: {run.Key}");
+            }
+
             return configuration;
         }
     }

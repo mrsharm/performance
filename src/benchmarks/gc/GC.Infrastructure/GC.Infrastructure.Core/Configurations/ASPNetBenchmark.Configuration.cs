@@ -58,6 +58,14 @@
                 throw new ArgumentNullException($"{nameof(ASPNetBenchmarksConfigurationParser)}: {nameof(configuration)} is null. Check the syntax of the configuration.");
             }
 
+            // Check if COMPlus_ is specified in any of the environment variables.
+            ConfigurationChecker.VerifyEnvironmentVariables(configuration.Environment.environment_variables, $"{nameof(ASPNetBenchmarksConfigurationParser)} - Environment Variables for {Path.GetFileNameWithoutExtension(path)}:");
+
+            foreach (var run in configuration.Runs)
+            {
+                ConfigurationChecker.VerifyEnvironmentVariables(run.Value.environment_variables, $"{nameof(ASPNetBenchmarksConfigurationParser)} - Run: {run.Key} - Environment Variables for {Path.GetFileNameWithoutExtension(path)}");
+            }
+
             return configuration;
         }
     }

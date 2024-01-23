@@ -125,6 +125,13 @@ namespace GC.Infrastructure.Core.Configurations.GCPerfSim
                 configuration.Output!.Path = Directory.GetCurrentDirectory();
             }
 
+            // If the user passes any COMPlus_ environment variables.
+            ConfigurationChecker.VerifyEnvironmentVariables(configuration.Environment.environment_variables, $"{nameof(GCPerfSimConfigurationParser)}: Environment variables for {Path.GetFileNameWithoutExtension(path)}");
+            foreach (var run in configuration.Runs)
+            {
+                ConfigurationChecker.VerifyEnvironmentVariables(run.Value.environment_variables, $"{nameof(GCPerfSimConfigurationParser)}: For Run: {run.Key}");
+            }
+
             return configuration;
         }
     }
