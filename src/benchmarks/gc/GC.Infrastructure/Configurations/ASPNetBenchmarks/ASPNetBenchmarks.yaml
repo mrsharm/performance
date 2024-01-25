@@ -1,19 +1,18 @@
 runs:
   baseline:
-    corerun: C:\CoreRuns\Empty\
+    corerun: C:\CoreRuns\Empty\clrgcexp.dll
     environment_variables:
-      COMPlus_GCServer: 1
-    framework_version: net6.0
+      DOTNET_GCName: clrgcexp.dll
   run:
-    corerun: C:\CoreRuns\Empty\
+    corerun: C:\CoreRuns\Empty\clrgc.dll
     environment_variables:
-      COMPlus_GCServer: 1
+      DOTNET_GCName: clrgc.dll
 environment:
   environment_variables: {}
   default_max_seconds: 300
-  framework_version: net8.0
+  framework_version: net9.0
 benchmark_settings:
-  benchmark_file: C:\InfraRuns\RunNew_All\Suites\ASPNETBenchmarks\ASPNetBenchmarks.csv
+  benchmark_file: C:\temp\InstructionsForCTI\performance\src\benchmarks\gc\GC.Infrastructure\Configurations\ASPNetBenchmarks\ASPNetBenchmarks.csv
   # To take a dump: --application.options.dumpType full --application.options.dumpOutput <filename>
   # To fetch the build artifacts: --application.options.fetch true
   additional_arguments: --chart --chart-type hex 
@@ -21,7 +20,7 @@ benchmark_settings:
   # benchmark_filters:
   # - Platform*
 output:
-  path: C:\InfraRuns\RunNew_All\ASPNetBenchmarks
+  path: C:\temp\InstructionsForCTI\performance\src\benchmarks\gc\GC.Infrastructure\Configurations\ASPNetBenchmarks\TestAoT_3
   columns: 
   percentage_disk_remaining_to_stop_per_run: 0
   all_columns: 

@@ -49,17 +49,13 @@ environment:
   default_max_seconds: 300
   iterations: 1
 coreruns:
-  baseline:
-    path: C:\CoreRuns\EmitEvent_Core_Root\corerun.exe
-    environment_variables:
-      COMPlus_GCName: clrgc.dll
   run:
-    path: C:\CoreRuns\EmitEvent_Core_Root\corerun.exe
+    path: C:\runtime\artifacts\tests\coreclr\windows.x64.Release\Tests\Core_Root\corerun.exe
     environment_variables:
-      COMPlus_GCName: clrgc.dll
+      COMPlus_GCName: clrgcexp.dll
 linux_coreruns: 
 output:
-  path: C:\InfraRuns\RunNew_All\GCPerfSim\Normal_Server_
+  path: C:\runtime\artifacts\tests\coreclr\windows.x64.Release\Tests\NormalServerRun
   columns:
   - Count
   - total allocated (mb)

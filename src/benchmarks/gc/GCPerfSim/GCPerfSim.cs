@@ -1864,8 +1864,9 @@ class ArgsParser
             double lohWeight = ((a11 * b2 * a33 + b1 * a23 * a31 + a13 * a21 * b3 - a13 * b2 * a31 - b1 * a21 * a33 - a11 * a23 * b3) / det);
             double pohWeight = ((a11 * a22 * b3 + a12 * b2 * a31 + b1 * a21 * a32 - b1 * a22 * a31 - a12 * a21 * b3 - a11 * b2 * a32) / det);
 
-            if (lohWeight > 0)
+            if (lohWeight > 0 || double.IsNaN(lohWeight))
             {
+                lohWeight = double.IsNaN(lohWeight) ? 1000 : lohWeight;
                 BucketSpec lohBucket = new BucketSpec(
                     sizeRange: new SizeRange(lohAllocLow, lohAllocHigh),
                     survInterval: lohSurvInterval,
@@ -2001,7 +2002,7 @@ class Bucket
             sohAllocatedBytes += overhead;
             pohAllocatedBytes += (size - overhead);
         }
-        else if (size >= 85000)
+        else if (size >= 85000) // TODO: Update the "magic number" to the constant defined.
         {
             sohAllocatedBytes += overhead;
             lohAllocatedBytes += (size - overhead);
@@ -2398,6 +2399,11 @@ class MemoryAlloc
                 }
             }
             n++;
+
+            if (n == 100_000)
+            {
+                Debugger.Break();
+            }
         }
 
         Finish();
@@ -2723,7 +2729,6 @@ class MemoryAlloc
 #if TODO
                 EmptyWorkingSet(Process.GetCurrentProcess().Handle);
 #endif
-                // Debugger.Break();
                 throw new System.ArgumentException("Just an opportunity for debugging", "test");
             }
 
