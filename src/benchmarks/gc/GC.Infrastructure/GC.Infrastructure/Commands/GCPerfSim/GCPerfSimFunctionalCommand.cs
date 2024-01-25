@@ -39,11 +39,11 @@ namespace GC.Infrastructure.Commands.GCPerfSim
 
             // II. Create the test suite for gcperfsim functional tests.
             string suitePath = Path.Combine(configuration.output_path, "Suites");
-            string gcPerfSimSuitePath = Path.Combine(suitePath, "GCPerfSim_Functional");
+            string gcPerfSimSuitePath = Path.Combine(suitePath, "GCPerfSim");
 
             Core.Utilities.TryCreateDirectory(gcPerfSimSuitePath);
 
-            string gcPerfSimOutputPath = Path.Combine(configuration.output_path, "GCPerfSim");
+            string gcPerfSimOutputPath = Path.Combine(configuration.output_path, "GCPerfSim_Functional");
             Core.Utilities.TryCreateDirectory(gcPerfSimOutputPath);
             GCPerfSimConfiguration gcPerfSimBaseConfiguration = GCPerfSimConfigurationParser.Parse(_gcPerfSimBase);
 
@@ -60,7 +60,6 @@ namespace GC.Infrastructure.Commands.GCPerfSim
             // 3. LowMemoryContainer.
 
             // 4. HighMemoryLoad.
-
 
             // III. Execute all the functional tests.
             string[] gcperfsimConfigurations = Directory.GetFiles(gcPerfSimOutputPath, "*.yaml");
