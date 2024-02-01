@@ -1862,8 +1862,11 @@ class ArgsParser
             double lohWeight = ((a11 * b2 * a33 + b1 * a23 * a31 + a13 * a21 * b3 - a13 * b2 * a31 - b1 * a21 * a33 - a11 * a23 * b3) / det);
             double pohWeight = ((a11 * a22 * b3 + a12 * b2 * a31 + b1 * a21 * a32 - b1 * a22 * a31 - a12 * a21 * b3 - a11 * b2 * a32) / det);
 
-            if (lohWeight > 0)
+            bool isLOHDominantScenario = double.IsNaN(lohWeight) && lohAllocRatioArg == 1000;
+
+            if (lohWeight > 0 || isLOHDominantScenario) 
             {
+                lohWeight = isLOHDominantScenario ? 1000 : lohWeight;
                 BucketSpec lohBucket = new BucketSpec(
                     sizeRange: new SizeRange(lohAllocLow, lohAllocHigh),
                     survInterval: lohSurvInterval,
