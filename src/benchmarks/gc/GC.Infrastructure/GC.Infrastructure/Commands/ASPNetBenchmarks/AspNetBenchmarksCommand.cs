@@ -34,6 +34,10 @@ namespace GC.Infrastructure.Commands.ASPNetBenchmarks
             [Description("Path to Configuration.")]
             [CommandOption("-c|--configuration")]
             public required string ConfigurationPath { get; init; }
+
+            [Description("Path to Crank.")]
+            [CommandOption("-p|--crank")]
+            public required string CrankPath { get; init; } = "crank";
         }
 
         public override int Execute([NotNull] CommandContext context, [NotNull] AspNetBenchmarkSettings settings)
@@ -59,7 +63,7 @@ namespace GC.Infrastructure.Commands.ASPNetBenchmarks
             // Check 2.
             SleepUntilHostsHaveRestarted();
 
-            RunASPNetBenchmarks(configuration);
+            RunASPNetBenchmarks(configuration, settings);
             AnsiConsole.MarkupLine($"[bold green] Report generated at: {configuration.Output.Path} [/]");
             return 0;
         }
@@ -87,14 +91,14 @@ namespace GC.Infrastructure.Commands.ASPNetBenchmarks
             }
         }
 
-        private static ProcessExecutionDetails ExecuteBenchmarkForRun(ASPNetBenchmarksConfiguration configuration, KeyValuePair<string, Run> run, KeyValuePair<string, string> benchmarkToCommand)
+        private static ProcessExecutionDetails ExecuteBenchmarkForRun(ASPNetBenchmarksConfiguration configuration, KeyValuePair<string, Run> run, KeyValuePair<string, string> benchmarkToCommand, AspNetBenchmarkSettings? settings = null)
         {
             // At the start of a run, if we are at a point in time where we are between the time where we deterministically know the host machines need to restart,
             // sleep for the remaining time until the machines are back up.
             SleepUntilHostsHaveRestarted();
 
             OS os = !benchmarkToCommand.Key.Contains("Win") ? OS.Linux : OS.Windows;
-            (string, string) commandLine = ASPNetBenchmarksCommandBuilder.Build(configuration, run, benchmarkToCommand, os);
+            (string, string) commandLine = ASPNetBenchmarksCommandBuilder.Build(configuration, run, benchmarkToCommand, os, settings.CrankPath);
 
             string outputPath = Path.Combine(configuration.Output!.Path, run.Key);
             if (!Directory.Exists(outputPath))
@@ -116,7 +120,7 @@ namespace GC.Infrastructure.Commands.ASPNetBenchmarks
             using (Process crankProcess = new())
             {
                 crankProcess.StartInfo.UseShellExecute = false;
-                crankProcess.StartInfo.FileName = commandLine.Item1;
+                crankProcess.StartInfo.FileName =  commandLine.Item1;
                 crankProcess.StartInfo.Arguments = commandLine.Item2;
                 crankProcess.StartInfo.RedirectStandardError = true;
                 crankProcess.StartInfo.RedirectStandardOutput = true;
@@ -208,7 +212,7 @@ namespace GC.Infrastructure.Commands.ASPNetBenchmarks
                                                exitCode: exitCode);
         }
 
-        public static AspNetBenchmarkResults RunASPNetBenchmarks(ASPNetBenchmarksConfiguration configuration)
+        public static AspNetBenchmarkResults RunASPNetBenchmarks(ASPNetBenchmarksConfiguration configuration, AspNetBenchmarkSettings? settings = null)
         {
             List<(string run, string benchmark, string reason)> retryMessages = new();
             Dictionary<string, ProcessExecutionDetails> executionDetails = new();
@@ -281,7 +285,7 @@ namespace GC.Infrastructure.Commands.ASPNetBenchmarks
                 {
                     const string NON_RESPONSIVE = @"for 'application' is invalid or not responsive: ""No such host is known";
                     const string TIME_OUT = "[Time Out]";
-                    ProcessExecutionDetails result = ExecuteBenchmarkForRun(configuration, run, c);
+                    ProcessExecutionDetails result = ExecuteBenchmarkForRun(configuration, run, c, settings);
                     string key = GetKey(c.Key, run.Key);
 
                     bool timeout = result.StandardError.Contains(TIME_OUT);
@@ -296,7 +300,7 @@ namespace GC.Infrastructure.Commands.ASPNetBenchmarks
                         AnsiConsole.MarkupLine($"[red bold] {Markup.Escape(retryDetails)} [/]");
                         retryMessages.Add((run.Key, c.Key, retryReason));
                         Thread.Sleep(60 * 2 * 1000);
-                        result = ExecuteBenchmarkForRun(configuration, run, c);
+                        result = ExecuteBenchmarkForRun(configuration, run, c, settings);
                         executionDetails[key] = result;
                     }
 

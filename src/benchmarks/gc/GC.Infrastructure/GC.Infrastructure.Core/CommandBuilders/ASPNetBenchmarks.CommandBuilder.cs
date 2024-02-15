@@ -6,9 +6,8 @@ namespace GC.Infrastructure.Core.CommandBuilders
 {
     public static class ASPNetBenchmarksCommandBuilder 
     {
-        public static (string, string) Build(ASPNetBenchmarksConfiguration configuration, KeyValuePair<string, Run> run, KeyValuePair<string, string> benchmarkNameToCommand, OS os)
+        public static (string, string) Build(ASPNetBenchmarksConfiguration configuration, KeyValuePair<string, Run> run, KeyValuePair<string, string> benchmarkNameToCommand, OS os, string processName = "crank")
         {
-            string processName = "crank";
             StringBuilder commandStringBuilder = new();
 
             // Load the base configuration.
