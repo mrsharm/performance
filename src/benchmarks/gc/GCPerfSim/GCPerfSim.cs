@@ -2738,6 +2738,11 @@ class MemoryAlloc
 
             PrintResult(testResult);
 
+            foreach (var v in GC.GetConfigurationVariables())
+            {
+
+            }
+
             return 0;
         }
         catch (Exception e)
