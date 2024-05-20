@@ -1862,7 +1862,7 @@ class ArgsParser
             double lohWeight = ((a11 * b2 * a33 + b1 * a23 * a31 + a13 * a21 * b3 - a13 * b2 * a31 - b1 * a21 * a33 - a11 * a23 * b3) / det);
             double pohWeight = ((a11 * a22 * b3 + a12 * b2 * a31 + b1 * a21 * a32 - b1 * a22 * a31 - a12 * a21 * b3 - a11 * b2 * a32) / det);
 
-            if (lohWeight > 0)
+            if ((lohWeight > 0) || (double.IsNaN(lohWeight) && lohAllocRatioArg == 1000))
             {
                 BucketSpec lohBucket = new BucketSpec(
                     sizeRange: new SizeRange(lohAllocLow, lohAllocHigh),
@@ -1870,13 +1870,13 @@ class ArgsParser
                     reqSurvInterval: reqLohSurvInterval,
                     pinInterval: lohPinInterval,
                     finalizableInterval: lohFinalizableInterval,
-                    weight: lohWeight);
+                    weight: double.IsNaN(lohWeight) ? 1000 : lohWeight);
 
                 bucketList.Add(lohBucket);
             }
 
 #if NET5_0_OR_GREATER
-            if (pohWeight > 0)
+            if (pohWeight > 0 || (double.IsNaN(pohWeight) && pohAllocRatioArg == 1000))
             {
                 BucketSpec pohBucket = new BucketSpec(
                     sizeRange: new SizeRange(pohAllocLow, pohAllocHigh),
@@ -1884,7 +1884,7 @@ class ArgsParser
                     reqSurvInterval: reqPohSurvInterval,
                     pinInterval: 0,
                     finalizableInterval: pohFinalizableInterval,
-                    weight: pohWeight,
+                    weight: double.IsNaN(pohWeight) ? 1000 : pohWeight,
                     isPoh: true);
 
                 bucketList.Add(pohBucket);
