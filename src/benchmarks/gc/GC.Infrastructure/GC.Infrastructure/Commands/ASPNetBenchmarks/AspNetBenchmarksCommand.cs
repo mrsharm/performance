@@ -228,10 +228,10 @@ namespace GC.Infrastructure.Commands.ASPNetBenchmarks
                 string[] line = lines[lineIdx].Split(',', StringSplitOptions.TrimEntries);
                 Debug.Assert(line.Length == 2);
 
-                string benchmarkName     = line[0];
+                string benchmarkName = line[0];
                 string benchmarkCommands = line[1];
 
-                benchmarkNameToCommand[benchmarkName] = benchmarkCommands; 
+                benchmarkNameToCommand[benchmarkName] = benchmarkCommands;
             }
 
             List<KeyValuePair<string, string>> benchmarkToNameCommandAsKvpList = new();
