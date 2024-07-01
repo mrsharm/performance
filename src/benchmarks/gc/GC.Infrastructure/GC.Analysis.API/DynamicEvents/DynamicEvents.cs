@@ -3,7 +3,6 @@
 
 using Microsoft.Diagnostics.Tracing.Analysis.GC;
 using Microsoft.Diagnostics.Tracing.Parsers.GCDynamic;
-using System.Diagnostics;
 using System.Dynamic;
 using System.Runtime.CompilerServices;
 
@@ -59,6 +58,14 @@ namespace GC.Analysis.API.DynamicEvents
                     {
                         offset += 8;
                     }
+                    else if (field.Value == typeof(float))
+                    {
+                        offset += 4;
+                    }
+                    else if (field.Value == typeof(byte) || field.Value == typeof(bool))
+                    {
+                        offset += 1;
+                    }
                     else
                     {
                         throw new Exception($"Provided schema has a field named {field.Key} using an unsupported type {field.Value}");
@@ -82,14 +89,21 @@ namespace GC.Analysis.API.DynamicEvents
             this.index = dynamicEvents;
         }
 
-        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        public override bool TryGetMember(GetMemberBinder binder, out object? result)
         {
             string name = binder.Name;
             Dictionary<string, Tuple<int, Type>> fieldOffsets;
             if (DynamicEventSchema.DynamicEventSchemas.TryGetValue(name, out fieldOffsets))
             {
                 // TODO, at this point, we should already have the events indexed and validated
-                result = new DynamicEventObject(index.Single(r => string.Equals(r.Name, binder.Name)), fieldOffsets);
+                var singleResult = index.SingleOrDefault(r => string.Equals(r.Name, binder.Name));
+                if (singleResult == null)
+                {
+                    result = null;
+                    return false;
+                }
+
+                result = new DynamicEventObject(singleResult, fieldOffsets);
                 return true;
             }
             else
@@ -127,9 +141,18 @@ namespace GC.Analysis.API.DynamicEvents
                 {
                     value = BitConverter.ToUInt64(dynamicEvent.Payload, fieldOffset);
                 }
+                else if (fieldType == typeof(float))
+                {
+                    value = BitConverter.ToSingle(dynamicEvent.Payload, fieldOffset);
+                }
+                else if (fieldType == typeof(byte) || fieldType == typeof(bool))
+                {
+                    // sizeof(byte) == 1 == sizeof(bool)
+                    value = BitConverter.ToBoolean(dynamicEvent.Payload, fieldOffset);
+                }
                 else
                 {
-                    Debug.Fail("Unknown field type");
+                    throw new Exception("Unknown Field Type.");
                 }
                 this.fieldValues.Add(field.Key, value);
             }

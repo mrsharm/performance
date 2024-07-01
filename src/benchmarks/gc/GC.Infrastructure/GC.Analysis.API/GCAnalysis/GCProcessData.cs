@@ -1,6 +1,7 @@
 ﻿using Microsoft.Diagnostics.Tracing.Parsers.Clr;
 using Microsoft.Diagnostics.Tracing.Analysis;
 using Microsoft.Diagnostics.Tracing.Analysis.GC;
+using GC.Analysis.API.DynamicEvents;
 
 namespace GC.Analysis.API
 {
