@@ -6,6 +6,7 @@ using Microsoft.Diagnostics.Tracing.Parsers.GCDynamic;
 using System.Diagnostics;
 using System.Dynamic;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 [assembly: InternalsVisibleTo("GC.Analysis.API.UnitTests")]
 
@@ -19,17 +20,17 @@ namespace GC.Analysis.API.DynamicEvents
         }
     }
 
-    public class DynamicEventSchema
+    public sealed class DynamicEventSchema
     {
         internal static Dictionary<string, CompiledSchema> DynamicEventSchemas = new Dictionary<string, CompiledSchema>();
 
-        public string DynamicEventName { get; set; }
+        public required string DynamicEventName { get; init; }
 
-        public List<KeyValuePair<string, Type>> Fields { get; set; }
+        public required List<KeyValuePair<string, Type>> Fields { get; init; }
 
-        public int MinOccurrence { get; set; } = 1;
+        public int MinOccurrence { get; init; } = 1;
 
-        public int MaxOccurrence { get; set; } = 1;
+        public int MaxOccurrence { get; init; } = 1;
 
         public static void Set(List<DynamicEventSchema> dynamicEventSchemas)
         {
@@ -73,13 +74,17 @@ namespace GC.Analysis.API.DynamicEvents
                     {
                         offset += 4;
                     }
+                    else if (field.Value == typeof(ulong))
+                    {
+                        offset += 8;
+                    }
                     else if (field.Value == typeof(byte) || field.Value == typeof(bool))
                     {
                         offset += 1;
                     }
                     else
                     {
-                        //throw new Exception($"Provided schema has a field named {field.Key} using an unsupported type {field.Value}");
+                        DynamicEventSchemas.Clear();
                         throw new Exception($"Provided event named {dynamicEventSchema.DynamicEventName} has a field named {field.Key} using an unsupported type {field.Value}");
                     }
                 }
@@ -89,26 +94,26 @@ namespace GC.Analysis.API.DynamicEvents
         }
     }
 
-    internal class DynamicEventField
+    internal sealed class DynamicEventField
     {
-        public int FieldOffset { get; set; }
-        public Type FieldType { get; set; }
+        public required int FieldOffset { get; init; }
+        public required Type FieldType { get; init; }
     }
 
-    internal class CompiledSchema : Dictionary<string, DynamicEventField>
+    internal sealed class CompiledSchema : Dictionary<string, DynamicEventField>
     {
         public int MinOccurrence { get; set; }
         public int MaxOccurrence { get; set; }
         public int Size { get; set; }
     }
 
-    internal class DynamicIndex : DynamicObject
+    internal sealed class DynamicIndex : DynamicObject
     {
-        private Dictionary<string, object> newIndex;
+        private readonly Dictionary<string, object?> index;
 
         public DynamicIndex(List<DynamicEvent> dynamicEvents)
         {
-            this.newIndex = new Dictionary<string, object>();
+            this.index = new Dictionary<string, object?>();
             Dictionary<string, List<DynamicEvent>> indexedEvents = new Dictionary<string, List<DynamicEvent>>();
             foreach (string eventName in DynamicEventSchema.DynamicEventSchemas.Keys)
             {
@@ -116,15 +121,14 @@ namespace GC.Analysis.API.DynamicEvents
             }
             foreach (DynamicEvent dynamicEvent in dynamicEvents)
             {
-                List<DynamicEvent> dynamicEventList;
+                List<DynamicEvent>? dynamicEventList;
                 if (indexedEvents.TryGetValue(dynamicEvent.Name, out dynamicEventList))
                 {
                     dynamicEventList.Add(dynamicEvent);
                 }
                 else
                 {
-                    this.newIndex = null;
-                    throw new Exception();
+                    throw new Exception($"Event with unknown name {dynamicEvent.Name} is found.");
                 }
             }
             foreach (string eventName in DynamicEventSchema.DynamicEventSchemas.Keys)
@@ -133,23 +137,21 @@ namespace GC.Analysis.API.DynamicEvents
                 CompiledSchema schema = DynamicEventSchema.DynamicEventSchemas[eventName];
                 if (eventList.Count > schema.MaxOccurrence)
                 {
-                    this.newIndex = null;
                     throw new Exception($"More than {schema.MaxOccurrence} {eventName} is found.");
                 }
                 if (eventList.Count < schema.MinOccurrence)
                 {
-                    this.newIndex = null;
                     throw new Exception();
                 }
                 if (schema.MaxOccurrence == 1)
                 {
                     if (eventList.Count >= 1)
                     {
-                        this.newIndex.Add(eventName, new DynamicEventObject(eventList[0], schema));
+                        this.index.Add(eventName, new DynamicEventObject(eventList[0], schema));
                     }
                     else
                     {
-                        this.newIndex.Add(eventName, null);
+                        this.index.Add(eventName, null);
                     }
                 }
                 else
@@ -159,36 +161,25 @@ namespace GC.Analysis.API.DynamicEvents
                     {
                         output.Add(new DynamicEventObject(dynamicEvent, schema));
                     }
-                    this.newIndex.Add(eventName, output);
+                    this.index.Add(eventName, output);
                 }
             }
         }
 
-        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        public override bool TryGetMember(GetMemberBinder binder, out object? result)
         {
-            string name = binder.Name;
-            CompiledSchema schema;
-            if (DynamicEventSchema.DynamicEventSchemas.TryGetValue(name, out schema))
-            {
-                result = newIndex[name];
-                return true;
-            }
-            else
-            {
-                result = null;
-                return false;
-            }
+            return index.TryGetValue(binder.Name, out result);
         }
     }
 
-    internal class DynamicEventObject : DynamicObject
+    internal sealed class DynamicEventObject : DynamicObject
     {
-        private DynamicEvent dynamicEvent;
+        private string name;
         private Dictionary<string, object> fieldValues;
 
         public DynamicEventObject(DynamicEvent dynamicEvent, CompiledSchema schema)
         {
-            this.dynamicEvent = dynamicEvent;
+            this.name = dynamicEvent.Name;
             this.fieldValues = new Dictionary<string, object>();
             if (dynamicEvent.Payload.Length != schema.Size)
             {
@@ -196,7 +187,7 @@ namespace GC.Analysis.API.DynamicEvents
             }
             foreach (KeyValuePair<string, DynamicEventField> field in schema)
             {
-                object value = null;
+                object? value = null;
                 int fieldOffset = field.Value.FieldOffset;
                 Type fieldType = field.Value.FieldType;
 
@@ -212,9 +203,12 @@ namespace GC.Analysis.API.DynamicEvents
                 {
                     value = BitConverter.ToSingle(dynamicEvent.Payload, fieldOffset);
                 }
-                else if (fieldType == typeof(byte) || fieldType == typeof(bool))
+                else if (fieldType == typeof(ulong))
                 {
-                    // sizeof(byte) == 1 == sizeof(bool)
+                    value = BitConverter.ToUInt64(dynamicEvent.Payload, fieldOffset);
+                }
+                else if (fieldType == typeof(bool) || fieldType == typeof(byte))
+                {
                     value = BitConverter.ToBoolean(dynamicEvent.Payload, fieldOffset);
                 }
                 else
@@ -223,32 +217,32 @@ namespace GC.Analysis.API.DynamicEvents
                 }
                 this.fieldValues.Add(field.Key, value);
             }
+            this.fieldValues.Add("TimeStamp", dynamicEvent.TimeStamp);
         }
 
-        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        public override bool TryGetMember(GetMemberBinder binder, out object? result)
         {
-            string name = binder.Name;
-            if (string.Equals(name, "TimeStamp"))
-            {
-                result = this.dynamicEvent.TimeStamp;
-                return true;
-            }
-            else
-            if (this.fieldValues.TryGetValue(name, out var fieldValue))
-            {
-                result = fieldValue;
-                return true;
-            }
-            else
-            {
-                result = null;
-                return false;
-            }
+            return this.fieldValues.TryGetValue(binder.Name, out result);
         }
 
         public override string ToString()
         {
-            return "I am " + this.dynamicEvent.Name + " with these fields: \n" + string.Join("\n", this.fieldValues.Select(kvp => kvp.Key + "->" + kvp.Value));
+            int fieldLength = 0;
+            foreach (KeyValuePair<string, object> field in this.fieldValues)
+            {
+                fieldLength = Math.Max(fieldLength, field.Key.Length);
+            }
+            StringBuilder sb = new StringBuilder();
+            sb.Append(this.name);
+            foreach (KeyValuePair<string, object> field in this.fieldValues)
+            {
+                sb.AppendLine();
+                sb.Append(field.Key);
+                sb.Append(' ', fieldLength - field.Key.Length + 1);
+                sb.Append(": ");
+                sb.Append(field.Value);
+            }
+            return sb.ToString();
         }
     }
 }

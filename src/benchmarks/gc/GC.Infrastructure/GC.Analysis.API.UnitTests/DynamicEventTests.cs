@@ -44,12 +44,8 @@ namespace GC.Analysis.API.UnitTests
         [TestMethod]
         public void TestDuplicatedFields()
         {
-<<<<<<< HEAD
-            Action test = () => { 
-=======
             Action test = () =>
             {
->>>>>>> b8d865fd7253bf7adf321862ed17cdbb114a6d3d
                 DynamicEventSchema.Set(
                     new List<DynamicEventSchema>
                     {
@@ -71,12 +67,8 @@ namespace GC.Analysis.API.UnitTests
         [TestMethod]
         public void TestUnsupportedType()
         {
-<<<<<<< HEAD
-            Action test = () => { 
-=======
             Action test = () =>
             {
->>>>>>> b8d865fd7253bf7adf321862ed17cdbb114a6d3d
                 DynamicEventSchema.Set(
                     new List<DynamicEventSchema>
                     {
@@ -95,30 +87,6 @@ namespace GC.Analysis.API.UnitTests
         }
 
         [TestMethod]
-<<<<<<< HEAD
-        public void TestValidSchema()
-        {
-            DynamicEventSchema.Set(
-                new List<DynamicEventSchema>
-                {
-                    new DynamicEventSchema
-                    {
-                        DynamicEventName = "SampleEventName",
-                        Fields = new List<KeyValuePair<string, Type>>
-                        {
-                            new KeyValuePair<string, Type>("version", typeof(ushort)),
-                            new KeyValuePair<string, Type>("Number", typeof(ulong)),
-                        }
-                    },
-                }
-            );
-            DynamicEvent sampleEvent = new DynamicEvent(
-                "SampleEventName",
-                DateTime.Now,
-                new byte[] {1, 0, 2, 0, 0, 0, 0, 0, 0, 0}
-            );
-        
-=======
         public void TestNegativeMinOccurrence()
         {
             Action test = () =>
@@ -215,7 +183,6 @@ namespace GC.Analysis.API.UnitTests
         public void TestSingleEvent()
         {
             DynamicEventSchema.Set(correctSingleSchema);
->>>>>>> b8d865fd7253bf7adf321862ed17cdbb114a6d3d
             List<DynamicEvent> dynamicEvents = new List<DynamicEvent>
             {
                 sampleEvent
@@ -224,9 +191,14 @@ namespace GC.Analysis.API.UnitTests
 
             ((int)index.SampleEventName.version).Should().Be(1);
             ((int)index.SampleEventName.Number).Should().Be(2);
+            string pattern = @"
+SampleEventName
+version   : 1
+Number    : 2
+TimeStamp : *
+".Trim();
+            ((string)index.SampleEventName.ToString()).Should().Match(pattern);
         }
-<<<<<<< HEAD
-=======
 
         private List<DynamicEventSchema> correctMultipleSchema = new List<DynamicEventSchema>
         {
@@ -310,6 +282,5 @@ namespace GC.Analysis.API.UnitTests
             dynamic index = new DynamicIndex(dynamicEvents);
             (index.SampleEventName == null ? 1 : 0).Should().Be(1);
         }
->>>>>>> b8d865fd7253bf7adf321862ed17cdbb114a6d3d
     }
 }
