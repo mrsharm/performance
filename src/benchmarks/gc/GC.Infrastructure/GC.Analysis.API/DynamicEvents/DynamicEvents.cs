@@ -1,4 +1,4 @@
-// TODO, AndrewAu, remove this condition when new TraceEvent is available through Nuget.
+// TODO, andrewau, remove this condition when new TraceEvent is available through Nuget.
 #if CUSTOM_TRACE_EVENT
 
 using Microsoft.Diagnostics.Tracing.Analysis.GC;
@@ -6,8 +6,9 @@ using Microsoft.Diagnostics.Tracing.Parsers.GCDynamic;
 using System.Diagnostics;
 using System.Dynamic;
 using System.Runtime.CompilerServices;
+using System.Text;
 
-[assembly:InternalsVisibleTo("GC.Analysis.API.UnitTests")]
+[assembly: InternalsVisibleTo("GC.Analysis.API.UnitTests")]
 
 namespace GC.Analysis.API.DynamicEvents
 {
@@ -19,13 +20,17 @@ namespace GC.Analysis.API.DynamicEvents
         }
     }
 
-    public class DynamicEventSchema
+    public sealed class DynamicEventSchema
     {
-        internal static Dictionary<string, Dictionary<string, Tuple<int, Type>>> DynamicEventSchemas = new Dictionary<string, Dictionary<string, Tuple<int, Type>>>();
+        internal static Dictionary<string, CompiledSchema> DynamicEventSchemas = new Dictionary<string, CompiledSchema>();
 
-        public string DynamicEventName { get; set; }
+        public required string DynamicEventName { get; init; }
 
-        public List<KeyValuePair<string, Type>> Fields { get; set; }
+        public required List<KeyValuePair<string, Type>> Fields { get; init; }
+
+        public int MinOccurrence { get; init; } = 1;
+
+        public int MaxOccurrence { get; init; } = 1;
 
         public static void Set(List<DynamicEventSchema> dynamicEventSchemas)
         {
@@ -36,22 +41,36 @@ namespace GC.Analysis.API.DynamicEvents
                 {
                     throw new Exception($"Provided schema has a duplicated event named {dynamicEventSchema.DynamicEventName}");
                 }
-                Dictionary<string, Tuple<int, Type>> fields = new Dictionary<string, Tuple<int, Type>>();
+                CompiledSchema schema = new CompiledSchema();
+                if (dynamicEventSchema.MinOccurrence < 0)
+                {
+                    throw new Exception($"Provided event named {dynamicEventSchema.DynamicEventName} has a negative MinOccurrence");
+                }
+                if (dynamicEventSchema.MaxOccurrence < dynamicEventSchema.MinOccurrence)
+                {
+                    throw new Exception($"Provided event named {dynamicEventSchema.DynamicEventName} has a MaxOccurrence smaller than MinOccurrence");
+                }
+                schema.MinOccurrence = dynamicEventSchema.MinOccurrence;
+                schema.MaxOccurrence = dynamicEventSchema.MaxOccurrence;
                 int offset = 0;
                 foreach (KeyValuePair<string, Type> field in dynamicEventSchema.Fields)
                 {
-                    if (fields.ContainsKey(field.Key))
+                    if (schema.ContainsKey(field.Key))
                     {
-                        throw new Exception($"Provided schema has a duplicated field named {field.Key}");
+                        DynamicEventSchemas.Clear();
+                        throw new Exception($"Provided event named {dynamicEventSchema.DynamicEventName} has a duplicated field named {field.Key}");
                     }
-                    fields.Add(field.Key, Tuple.Create(offset, field.Value));
+                    schema.Add(field.Key, new DynamicEventField { FieldOffset = offset, FieldType = field.Value });
 
-                    // TODO, AndrewAu, all types that we envision this will be needed
                     if (field.Value == typeof(ushort))
                     {
                         offset += 2;
                     }
                     else if (field.Value == typeof(uint))
+                    {
+                        offset += 4;
+                    }
+                    else if (field.Value == typeof(float))
                     {
                         offset += 4;
                     }
@@ -61,60 +80,113 @@ namespace GC.Analysis.API.DynamicEvents
                     }
                     else
                     {
-                        throw new Exception($"Provided schema has a field named {field.Key} using an unsupported type {field.Value}");
+                        DynamicEventSchemas.Clear();
+                        throw new Exception($"Provided event named {dynamicEventSchema.DynamicEventName} has a field named {field.Key} using an unsupported type {field.Value}");
                     }
                 }
-                DynamicEventSchemas.Add(dynamicEventSchema.DynamicEventName, fields);
+                schema.Size = offset;
+                DynamicEventSchemas.Add(dynamicEventSchema.DynamicEventName, schema);
             }
         }
     }
 
-    internal class DynamicIndex : DynamicObject
+    internal sealed class DynamicEventField
     {
-        private List<DynamicEvent> index;
+        public required int FieldOffset { get; init; }
+        public required Type FieldType { get; init; }
+    }
+
+    internal sealed class CompiledSchema : Dictionary<string, DynamicEventField>
+    {
+        public int MinOccurrence { get; set; }
+        public int MaxOccurrence { get; set; }
+        public int Size { get; set; }
+    }
+
+    internal sealed class DynamicIndex : DynamicObject
+    {
+        private readonly Dictionary<string, object?> index;
 
         public DynamicIndex(List<DynamicEvent> dynamicEvents)
         {
-            // TODO, andrewau, index the events by name at this point
-            // TODO, andrewau, define multiplicity constraint
-            // TODO, andrewau, define size constraint
-            // TODO, andrewau, validate events according to constraints.
-            this.index = dynamicEvents;
+            this.index = new Dictionary<string, object?>();
+            Dictionary<string, List<DynamicEvent>> indexedEvents = new Dictionary<string, List<DynamicEvent>>();
+            foreach (string eventName in DynamicEventSchema.DynamicEventSchemas.Keys)
+            {
+                indexedEvents.Add(eventName, new List<DynamicEvent>());
+            }
+            foreach (DynamicEvent dynamicEvent in dynamicEvents)
+            {
+                List<DynamicEvent>? dynamicEventList;
+                if (indexedEvents.TryGetValue(dynamicEvent.Name, out dynamicEventList))
+                {
+                    dynamicEventList.Add(dynamicEvent);
+                }
+                else
+                {
+                    throw new Exception($"Event with unknown name {dynamicEvent.Name} is found.");
+                }
+            }
+            foreach (string eventName in DynamicEventSchema.DynamicEventSchemas.Keys)
+            {
+                List<DynamicEvent> eventList = indexedEvents[eventName];
+                CompiledSchema schema = DynamicEventSchema.DynamicEventSchemas[eventName];
+                if (eventList.Count > schema.MaxOccurrence)
+                {
+                    throw new Exception($"More than {schema.MaxOccurrence} {eventName} is found.");
+                }
+                if (eventList.Count < schema.MinOccurrence)
+                {
+                    throw new Exception();
+                }
+                if (schema.MaxOccurrence == 1)
+                {
+                    if (eventList.Count >= 1)
+                    {
+                        this.index.Add(eventName, new DynamicEventObject(eventList[0], schema));
+                    }
+                    else
+                    {
+                        this.index.Add(eventName, null);
+                    }
+                }
+                else
+                {
+                    List<DynamicEventObject> output = new List<DynamicEventObject>();
+                    foreach (DynamicEvent dynamicEvent in eventList)
+                    {
+                        output.Add(new DynamicEventObject(dynamicEvent, schema));
+                    }
+                    this.index.Add(eventName, output);
+                }
+            }
         }
 
-        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        public override bool TryGetMember(GetMemberBinder binder, out object? result)
         {
-            string name = binder.Name;
-            Dictionary<string, Tuple<int, Type>> fieldOffsets;
-            if (DynamicEventSchema.DynamicEventSchemas.TryGetValue(name, out fieldOffsets))
-            {
-                // TODO, at this point, we should already have the events indexed and validated
-                result = new DynamicEventObject(index.Single(r => string.Equals(r.Name, binder.Name)), fieldOffsets);
-                return true;
-            }
-            else
-            {
-                result = null;
-                return false;
-            }
+            return index.TryGetValue(binder.Name, out result);
         }
     }
 
-    internal class DynamicEventObject : DynamicObject
+    internal sealed class DynamicEventObject : DynamicObject
     {
-        private DynamicEvent dynamicEvent;
+        private string name;
         private Dictionary<string, object> fieldValues;
 
-        public DynamicEventObject(DynamicEvent dynamicEvent, Dictionary<string, Tuple<int, Type>> fieldOffsets)
+        public DynamicEventObject(DynamicEvent dynamicEvent, CompiledSchema schema)
         {
-            this.dynamicEvent = dynamicEvent;
+            this.name = dynamicEvent.Name;
             this.fieldValues = new Dictionary<string, object>();
-            foreach (KeyValuePair<string, Tuple<int, Type>> field in fieldOffsets)
+            if (dynamicEvent.Payload.Length != schema.Size)
             {
-                object value = null;
-                int fieldOffset = field.Value.Item1;
-                Type fieldType = field.Value.Item2;
-                
+                throw new Exception($"Event {dynamicEvent.Name} does not have matching size");
+            }
+            foreach (KeyValuePair<string, DynamicEventField> field in schema)
+            {
+                object? value = null;
+                int fieldOffset = field.Value.FieldOffset;
+                Type fieldType = field.Value.FieldType;
+
                 if (fieldType == typeof(ushort))
                 {
                     value = BitConverter.ToUInt16(dynamicEvent.Payload, fieldOffset);
@@ -123,42 +195,46 @@ namespace GC.Analysis.API.DynamicEvents
                 {
                     value = BitConverter.ToUInt32(dynamicEvent.Payload, fieldOffset);
                 }
+                else if (fieldType == typeof(float))
+                {
+                    value = BitConverter.ToSingle(dynamicEvent.Payload, fieldOffset);
+                }
                 else if (fieldType == typeof(ulong))
                 {
                     value = BitConverter.ToUInt64(dynamicEvent.Payload, fieldOffset);
                 }
                 else
                 {
-                    Debug.Fail("Unknown field type");
+                    throw new Exception($"Provided schema has a field named {field.Key} using an unsupported type {fieldType}");
                 }
                 this.fieldValues.Add(field.Key, value);
             }
+            this.fieldValues.Add("TimeStamp", dynamicEvent.TimeStamp);
         }
 
-        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        public override bool TryGetMember(GetMemberBinder binder, out object? result)
         {
-            string name = binder.Name;
-            if (string.Equals(name, "TimeStamp"))
-            {
-                result = this.dynamicEvent.TimeStamp;
-                return true;
-            }
-            else
-            if (this.fieldValues.TryGetValue(name, out var fieldValue))
-            {
-                result = fieldValue;
-                return true;
-            }
-            else
-            {
-                result = null;
-                return false;
-            }
+            return this.fieldValues.TryGetValue(binder.Name, out result);
         }
 
         public override string ToString()
         {
-            return "I am " + this.dynamicEvent.Name + " with these fields: \n" + string.Join("\n", this.fieldValues.Select(kvp => kvp.Key + "->" + kvp.Value));
+            int fieldLength = 0;
+            foreach (KeyValuePair<string, object> field in this.fieldValues)
+            {
+                fieldLength = Math.Max(fieldLength, field.Key.Length);
+            }
+            StringBuilder sb = new StringBuilder();
+            sb.Append(this.name);
+            foreach (KeyValuePair<string, object> field in this.fieldValues)
+            {
+                sb.AppendLine();
+                sb.Append(field.Key);
+                sb.Append(' ', fieldLength - field.Key.Length + 1);
+                sb.Append(": ");
+                sb.Append(field.Value);
+            }
+            return sb.ToString();
         }
     }
 }
