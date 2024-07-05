@@ -14,9 +14,17 @@ namespace GC.Analysis.API.DynamicEvents
 {
     public static class TraceGCExtensions
     {
+        private static ConditionalWeakTable<TraceGC, DynamicIndex> dynamicEventsCache = new ConditionalWeakTable<TraceGC, DynamicIndex>();
+
         public static dynamic DynamicEvents(this TraceGC traceGC)
         {
-            return new DynamicIndex(traceGC.DynamicEvents);
+            DynamicIndex dynamicIndex;
+            if (!dynamicEventsCache.TryGetValue(traceGC, out dynamicIndex))
+            {
+                dynamicIndex = new DynamicIndex(traceGC.DynamicEvents);
+                dynamicEventsCache.Add(traceGC, dynamicIndex);
+            }
+            return dynamicIndex;
         }
     }
 
@@ -24,17 +32,20 @@ namespace GC.Analysis.API.DynamicEvents
     {
         internal static Dictionary<string, CompiledSchema> DynamicEventSchemas = new Dictionary<string, CompiledSchema>();
 
+        internal static bool allowPartialSchema;
+
         public required string DynamicEventName { get; init; }
 
         public required List<KeyValuePair<string, Type>> Fields { get; init; }
 
-        public int MinOccurrence { get; init; } = 1;
+        public int MinOccurrence { get; init; } = 0;
 
         public int MaxOccurrence { get; init; } = 1;
 
-        public static void Set(List<DynamicEventSchema> dynamicEventSchemas)
+        public static void Set(List<DynamicEventSchema> dynamicEventSchemas, bool allowPartialSchema = true)
         {
             DynamicEventSchemas.Clear();
+            DynamicEventSchema.allowPartialSchema = allowPartialSchema;
             foreach (DynamicEventSchema dynamicEventSchema in dynamicEventSchemas)
             {
                 if (DynamicEventSchemas.ContainsKey(dynamicEventSchema.DynamicEventName))
@@ -78,7 +89,11 @@ namespace GC.Analysis.API.DynamicEvents
                     {
                         offset += 8;
                     }
-                    else if (field.Value == typeof(byte) || field.Value == typeof(bool))
+                    else if (field.Value == typeof(byte))
+                    {
+                        offset += 1;
+                    }
+                    else if (field.Value == typeof(bool))
                     {
                         offset += 1;
                     }
@@ -128,7 +143,10 @@ namespace GC.Analysis.API.DynamicEvents
                 }
                 else
                 {
-                    throw new Exception($"Event with unknown name {dynamicEvent.Name} is found.");
+                    if (!DynamicEventSchema.allowPartialSchema)
+                    {
+                        throw new Exception($"Event with unknown name {dynamicEvent.Name} is found.");
+                    }
                 }
             }
             foreach (string eventName in DynamicEventSchema.DynamicEventSchemas.Keys)
@@ -141,7 +159,7 @@ namespace GC.Analysis.API.DynamicEvents
                 }
                 if (eventList.Count < schema.MinOccurrence)
                 {
-                    throw new Exception();
+                    throw new Exception($"Less than {schema.MinOccurrence} {eventName} is found.");
                 }
                 if (schema.MaxOccurrence == 1)
                 {
@@ -207,7 +225,11 @@ namespace GC.Analysis.API.DynamicEvents
                 {
                     value = BitConverter.ToUInt64(dynamicEvent.Payload, fieldOffset);
                 }
-                else if (fieldType == typeof(bool) || fieldType == typeof(byte))
+                else if (fieldType == typeof(byte))
+                {
+                    value = dynamicEvent.Payload[fieldOffset];
+                }
+                else if (fieldType == typeof(bool))
                 {
                     value = BitConverter.ToBoolean(dynamicEvent.Payload, fieldOffset);
                 }

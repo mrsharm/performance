@@ -120,6 +120,7 @@ namespace GC.Analysis.API.UnitTests
                         new DynamicEventSchema
                         {
                             DynamicEventName = "SampleEventName",
+                            MinOccurrence = 1,
                             MaxOccurrence = 0,
                             Fields = new List<KeyValuePair<string, Type>>
                             {
@@ -137,6 +138,7 @@ namespace GC.Analysis.API.UnitTests
             new DynamicEventSchema
             {
                 DynamicEventName = "SampleEventName",
+                MinOccurrence = 1,
                 Fields = new List<KeyValuePair<string, Type>>
                 {
                     new KeyValuePair<string, Type>("version", typeof(ushort)),
@@ -147,6 +149,12 @@ namespace GC.Analysis.API.UnitTests
 
         private DynamicEvent sampleEvent = new DynamicEvent(
             "SampleEventName",
+            DateTime.Now,
+            new byte[] { 1, 0, 2, 0, 0, 0, 0, 0, 0, 0 }
+        );
+
+        private DynamicEvent unknownEvent = new DynamicEvent(
+            "UnknownEventName",
             DateTime.Now,
             new byte[] { 1, 0, 2, 0, 0, 0, 0, 0, 0, 0 }
         );
@@ -205,6 +213,7 @@ TimeStamp : *
             new DynamicEventSchema
             {
                 DynamicEventName = "SampleEventName",
+                MinOccurrence = 1,
                 MaxOccurrence = 2,
                 Fields = new List<KeyValuePair<string, Type>>
                 {
@@ -269,7 +278,6 @@ TimeStamp : *
                     new DynamicEventSchema
                     {
                         DynamicEventName = "SampleEventName",
-                        MinOccurrence = 0,
                         Fields = new List<KeyValuePair<string, Type>>
                         {
                             new KeyValuePair<string, Type>("version", typeof(ushort)),
@@ -280,7 +288,36 @@ TimeStamp : *
             );
             List<DynamicEvent> dynamicEvents = new List<DynamicEvent>();
             dynamic index = new DynamicIndex(dynamicEvents);
-            (index.SampleEventName == null ? 1 : 0).Should().Be(1);
+            ((bool)(index.SampleEventName == null)).Should().Be(true);
+        }
+
+        [TestMethod]
+        public void TestForgivingUnknownEvent()
+        {
+            DynamicEventSchema.Set(correctSingleSchema);
+            List<DynamicEvent> dynamicEvents = new List<DynamicEvent>
+            {
+                sampleEvent,
+                unknownEvent
+            };
+            dynamic index = new DynamicIndex(dynamicEvents);
+            // As long as we don't throw exception, this is forgiving.
+        }
+
+        [TestMethod]
+        public void TestReportingUnknownEvent()
+        {
+            DynamicEventSchema.Set(correctSingleSchema, false);
+            List<DynamicEvent> dynamicEvents = new List<DynamicEvent>
+            {
+                sampleEvent,
+                unknownEvent
+            };
+            Action test = () =>
+            {
+                dynamic index = new DynamicIndex(dynamicEvents);
+            };
+            test.Should().Throw<Exception>();
         }
     }
 }
