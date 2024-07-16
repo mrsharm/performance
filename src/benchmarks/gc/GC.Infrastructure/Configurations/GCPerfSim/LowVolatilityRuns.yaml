@@ -3,13 +3,11 @@ runs:
     override_parameters:
       sohsi: 50 
     environment_variables: {}
-
   soh_pinning:
     override_parameters:
       sohsi: 50 
       sohpi: 100 
     environment_variables: {}
-
   poh:
     override_parameters:
       sohsi: 50
@@ -17,7 +15,6 @@ runs:
       pohar: 100
       rpohsi: 50
     environment_variables: {}
-
   loh:
     override_parameters:
       sohsi: 50
@@ -25,7 +22,6 @@ runs:
       rlohsi: 50
       lohsi: 50
     environment_variables: {}
-
 gcperfsim_configurations:
   parameters:
     tc: 36
@@ -48,7 +44,7 @@ gcperfsim_configurations:
     rlmb: 2
     allocType: reference
     testKind: time
-  gcperfsim_path: C:\performance\artifacts\bin\GCPerfSim\release\net7.0\GCPerfSim.dll
+  gcperfsim_path: C:\Users\musharm\source\repos\performance_dynamic\artifacts\bin\GCPerfSim\Release\net7.0\GCPerfSim.dll
 environment:
   environment_variables:
     DOTNET_gcServer: 1
@@ -56,17 +52,12 @@ environment:
   default_max_seconds: 300
   iterations: 1
 coreruns:
-  baseline:
-    path: C:\CoreRuns\EmitEvent_Core_Root\corerun.exe
-    environment_variables:
-      DOTNET_GCName: clrgc.dll
   run:
-    path: C:\CoreRuns\EmitEvent_Core_Root\corerun.exe
+    path: C:\Users\musharm\source\repos\runtime\artifacts\tests\coreclr\windows.x64.Release\Tests\Core_Root\corerun.exe
     environment_variables:
-      DOTNET_GCName: clrgc.dll
-linux_coreruns: 
-output:
-  path: C:\InfraRuns\GCPerfSim\
+      DOTNET_GCName: clrgcexp.dll
+output: 
+  path: C:\Users\musharm\source\repos\performance_dynamic\src\benchmarks\gc\GC.Infrastructure\Configurations\GCPerfSim\Result
   columns:
   - Count
   - total allocated (mb)
