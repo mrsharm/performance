@@ -14,12 +14,13 @@
 //#r "nuget: YamlDotnet"
 
 // TODO: Ensure you are pointing to the right artifacts folder.
-#r "..\..\..\..\..\artifacts\bin\GC.Analysis.API\Release\net7.0\GC.Analysis.API.dll"
+#r "..\..\..\..\..\artifacts\bin\GC.Analysis.API\Release\net8.0\GC.Analysis.API.dll"
 
 using System.IO;
 using System.Text.RegularExpressions;
 
 using GC.Analysis.API;
+using GC.Analysis.API.DynamicEvents;
 
 //using Etlx = Microsoft.Diagnostics.Tracing.Etlx;
 //using Microsoft.Data.Analysis;
@@ -340,6 +341,80 @@ public static bool MightInclude(this ConfigIterationFilter configIterationFilter
 
 public static bool Include(this ConfigIterationFilter configIterationFilter, string config, int iteration)
     => (configIterationFilter == null) || (configIterationFilter.GetValueOrDefault(config)?.Include(iteration) ?? true);
+
+GC.Analysis.API.DynamicEvents.DynamicEventSchema.Set(new List<DynamicEventSchema>
+{
+    new DynamicEventSchema
+    {
+        DynamicEventName = "SizeAdaptationSample",
+        Fields = new List<KeyValuePair<string, Type>>
+        {
+            new KeyValuePair<string, Type>("version", typeof(ushort)),
+            new KeyValuePair<string, Type>("GCIndex", typeof(ulong)),
+            new KeyValuePair<string, Type>("ElapsedTimeBetweenGCs", typeof(uint)),
+            new KeyValuePair<string, Type>("GCPauseTime", typeof(uint)),
+            new KeyValuePair<string, Type>("SOHMSLWaitTime", typeof(uint)),
+            new KeyValuePair<string, Type>("UOHMSLWaitTime", typeof(uint)),
+            new KeyValuePair<string, Type>("TotalSOHStableSize", typeof(ulong)),
+            new KeyValuePair<string, Type>("Gen0BudgetPerHeap", typeof(uint)),
+        },
+        MinOccurrence = 0
+    },
+    new DynamicEventSchema
+    {
+        DynamicEventName = "SizeAdaptationTuning",
+        Fields = new List<KeyValuePair<string, Type>>
+        {
+            new KeyValuePair<string, Type>("version", typeof(ushort)),
+            new KeyValuePair<string, Type>("NewNHeaps", typeof(ushort)),
+            new KeyValuePair<string, Type>("MaxHeapCountDatas", typeof(ushort)),
+            new KeyValuePair<string, Type>("MinHeapCountDatas", typeof(ushort)),
+            new KeyValuePair<string, Type>("CurrentGCIndex", typeof(ulong)),
+            new KeyValuePair<string, Type>("TotalSOHStableSize", typeof(ulong)),
+            new KeyValuePair<string, Type>("MedianThroughputCostPercent", typeof(float)),
+            new KeyValuePair<string, Type>("TcpToConsider", typeof(float)),
+            new KeyValuePair<string, Type>("CurrentAroundTargetAccumulation", typeof(float)),
+            new KeyValuePair<string, Type>("RecordedTcpCount", typeof(ushort)),
+            new KeyValuePair<string, Type>("RecordedTcpSlope", typeof(float)),
+            new KeyValuePair<string, Type>("NumGcsSinceLastChange", typeof(uint)),
+            new KeyValuePair<string, Type>("AggFactor", typeof(bool)),
+            new KeyValuePair<string, Type>("ChangeDecision", typeof(ushort)),
+            new KeyValuePair<string, Type>("AdjReason", typeof(ushort)),
+            new KeyValuePair<string, Type>("HcChangeFreqFactor", typeof(ushort)),
+            new KeyValuePair<string, Type>("HcFreqReason", typeof(ushort)),
+            new KeyValuePair<string, Type>("AdjMetric", typeof(bool))
+        },
+        MinOccurrence = 0
+    },
+    new DynamicEventSchema
+    {
+        DynamicEventName = "FragmentationMeasurement",
+        MaxOccurrence = 2,
+        Fields = new List<KeyValuePair<string, Type>>
+        {
+            new KeyValuePair<string, Type>("version", typeof(ushort)),
+
+            // RegionsRange measures the number of bytes that the regions allocator
+            // allocated out counting the holes
+            new KeyValuePair<string, Type>("RegionsRange", typeof(ulong)),
+
+            // UsedRange measures the number of bytes that the regions allocator
+            // allocated out discounting the holes
+            new KeyValuePair<string, Type>("UsedRange", typeof(ulong)),
+
+            new KeyValuePair<string, Type>("TotalReserved0", typeof(ulong)),
+            new KeyValuePair<string, Type>("TotalAllocated0", typeof(ulong)),
+            new KeyValuePair<string, Type>("TotalReserved1", typeof(ulong)),
+            new KeyValuePair<string, Type>("TotalAllocated1", typeof(ulong)),
+            new KeyValuePair<string, Type>("TotalReserved2", typeof(ulong)),
+            new KeyValuePair<string, Type>("TotalAllocated2", typeof(ulong)),
+            new KeyValuePair<string, Type>("TotalReserved3", typeof(ulong)),
+            new KeyValuePair<string, Type>("TotalAllocated3", typeof(ulong)),
+            new KeyValuePair<string, Type>("TotalReserved4", typeof(ulong)),
+            new KeyValuePair<string, Type>("TotalAllocated4", typeof(ulong)),
+        }
+    }
+});
 
 public class DataManager
 {

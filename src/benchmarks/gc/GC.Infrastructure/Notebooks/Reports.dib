@@ -20,7 +20,6 @@
 
 // Notebook cells are already in implicit classes, so this isn't needed (and doesn't work):
 // public static class DataManagerExtensions
-
 public static IEnumerable<(string run, string config, ConfigData configData)> GetConfigsWithData(this DataManager dataManager, Filter runFilter, Filter configFilter)
 {
     foreach ((string run, RunData runData) in dataManager.Data.Runs)
@@ -370,6 +369,8 @@ public class Aggregation
 
         public static double Average(IEnumerable<double> data) => data.Average();
         public static double Range(IEnumerable<double> data) => data.Max() - data.Min();
+        public static double StandardDeviation(IEnumerable<double> data) => Math.Sqrt(data.Select(x => Math.Pow(x - data.Average(), 2)).Average());
+        public static double CoefficientOfVariance(IEnumerable<double> data) => (StandardDeviation(data) / ( Average(data) * data.Count() )) * 100;
 
         public static double GeoMean(IEnumerable<double> data)
         {
@@ -390,6 +391,7 @@ public class Aggregation
     public static Aggregation Average { get; } = new Aggregation(Funcs.Average, "Average", null);
     public static Aggregation Range { get; } = new Aggregation(Funcs.Range, "Range", null);
     public static Aggregation GeoMean { get; } = new Aggregation(Funcs.GeoMean, "GeoMean", null);
+    public static Aggregation CV { get; } = new Aggregation(Funcs.CoefficientOfVariance, "CV", null);
 }
 
 public class BaseMetric<TSource, TValue>
@@ -490,7 +492,7 @@ public class Metric<TSource> : BaseMetric<TSource, double?>
 public static class Metrics
 {
     public static Metric<IterationData> Promote(Metric<TraceGC> metric, Aggregation aggregation)
-        => Metric<IterationData>.Promote(metric, iterationData => iterationData.GCProcessData.GCs, aggregation);
+        => Metric<IterationData>.Promote(metric, iterationData => (iterationData.GCProcessData.GCs), aggregation);
     public static Metric<BenchmarkData> Promote(Metric<IterationData> metric, Aggregation aggregation)
         => Metric<BenchmarkData>.Promote(metric, benchmarkData => benchmarkData.Iterations, aggregation);
     public static Metric<ConfigData> Promote(Metric<BenchmarkData> metric, Aggregation aggregation)
@@ -587,8 +589,314 @@ public static class Metrics
 
         public static Metric<TraceGC> HeapCount = new(gc => gc.HeapCount, "Heap count", "#");
 
+        public static Metric<TraceGC> TCPToConsider = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.TcpToConsider;
+        },
+        "TCPToConsider", 
+        "%");
+
+        public static Metric<TraceGC> NewNHeaps = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.NewNHeaps;
+        },
+        "NewNHeaps", 
+        "#");
+
+        public static Metric<TraceGC> MaxHeapCountDatas = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.MaxHeapCountDatas;
+        },
+        "MaxHeapCountDatas", 
+        "#");
+
+        public static Metric<TraceGC> MinHeapCountDatas = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.MinHeapCountDatas;
+        },
+        "MinHeapCountDatas", 
+        "#");
+
+        public static Metric<TraceGC> CurrentGCIndex = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.CurrentGCIndex;
+        },
+        "CurrentGCIndex", 
+        "#");
+
+        public static Metric<TraceGC> TotalSOHStableSize = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.TotalSOHStableSize;
+        },
+        "TotalSOHStableSize", 
+        "bytes");
+
+        public static Metric<TraceGC> MedianThroughputCostPercent = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.MedianThroughputCostPercent;
+        },
+        "MedianThroughputCostPercent", 
+        "%");
+
+        public static Metric<TraceGC> CurrentAroundTargetAccumulation = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.CurrentAroundTargetAccumulation;
+        },
+        "CurrentAroundTargetAccumulation", 
+        "#");
+
+        public static Metric<TraceGC> RecordedTcpCount = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.RecordedTcpCount;
+        },
+        "RecordedTcpCount", 
+        "#");
+
+        public static Metric<TraceGC> RecordedTcpSlope = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.RecordedTcpSlope;
+        },
+        "RecordedTcpSlope", 
+        "#");
+
+        public static Metric<TraceGC> NumGcsSinceLastChange = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.NumGcsSinceLastChange;
+        },
+        "NumGcsSinceLastChange", 
+        "#");
+
+        public static Metric<TraceGC> AggFactor = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.AggFactor;
+        },
+        "AggFactor", 
+        "#");
+
+        public static Metric<TraceGC> ChangeDecision = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.ChangeDecision;
+        },
+        "ChangeDecision", 
+        "#");
+
+        public static Metric<TraceGC> AdjReason = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.AdjReason;
+        },
+        "AdjReason", 
+        "#");
+
+        public static Metric<TraceGC> HcChangeFreqFactor = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.HcChangeFreqFactor;
+        },
+        "HcChangeFreqFactor", 
+        "#");
+
+        public static Metric<TraceGC> HcFreqReason = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.HcFreqReason;
+        },
+        "HcFreqReason", 
+        "#");
+
+        public static Metric<TraceGC> AdjMetric = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationTuning?.AdjMetric;
+        },
+        "AdjMetric", 
+        "#");
+
+        public static Metric<TraceGC> ElapsedTimeBetweenGCs = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationSample?.ElapsedTimeBetweenGCs;
+        },
+        "ElapsedTimeBetweenGCs", 
+        "msec");
+
+        public static Metric<TraceGC> GCIndex = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationSample?.GCIndex;
+        },
+        "GCIndex", 
+        "#");
+
+        public static Metric<TraceGC> GCPauseTime = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationSample?.GCPauseTime;
+        },
+        "GCPauseTime", 
+        "msec");
+
+        public static Metric<TraceGC> SOHMSLWaitTime = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationSample?.SOHMSLWaitTime;
+        },
+        "SOHMSLWaitTime", 
+        "msec");
+
+        public static Metric<TraceGC> UOHMSLWaitTime = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationSample?.UOHMSLWaitTime;
+        },
+        "UOHMSLWaitTime", 
+        "msec");
+
+        public static Metric<TraceGC> Gen0BudgetPerHeap = new(gc => 
+        {
+            return gc.DynamicEvents().SizeAdaptationSample?.Gen0BudgetPerHeap;
+        },
+        "Gen0BudgetPerHeap", 
+        "#");
+
+
+        public static Metric<TraceGC> RegionsRangeBefore = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.FirstOrDefault().RegionsRange; 
+        },
+        "RegionsRangeBefore", 
+        "bytes");
+        public static Metric<TraceGC> RegionsRangeAfter = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.LastOrDefault().RegionsRange; 
+        },
+        "RegionsRangeAfter", 
+        "bytes");
+
+        public static Metric<TraceGC> UsedRangeBefore = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.FirstOrDefault().UsedRange; 
+        },
+        "UsedRangeBefore", 
+        "bytes");
+
+        public static Metric<TraceGC> UsedRangeAfter = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.LastOrDefault().UsedRange; 
+        },
+        "UsedRangeAfter", 
+        "bytes");
+
+        public static Metric<TraceGC> TotalReserved0Before = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.FirstOrDefault().TotalReserved0; 
+        },
+        "TotalReserved0Before", 
+        "bytes");
+
+        public static Metric<TraceGC> TotalReserved0After = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.LastOrDefault().TotalReserved0; 
+        },
+        "TotalReserved0After", 
+        "bytes");
+
+        public static Metric<TraceGC> TotalAllocated0Before = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.FirstOrDefault().TotalAllocated0; 
+        },
+        "TotalAllocated0Before", 
+        "bytes");
+
+        public static Metric<TraceGC> TotalAllocated0After = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.LastOrDefault().TotalAllocated0; 
+        },
+        "TotalAllocated0After", 
+        "bytes");
+
+        public static Metric<TraceGC> TotalReserved1Before = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.FirstOrDefault().TotalReserved1; 
+        },
+        "TotalReserved1Before", 
+        "bytes");
+
+        public static Metric<TraceGC> TotalReserved1After = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.LastOrDefault().TotalReserved1; 
+        },
+        "TotalReserved1After", 
+        "bytes");
+
+        public static Metric<TraceGC> TotalAllocated1Before = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.FirstOrDefault().TotalAllocated1; 
+        },
+        "TotalAllocated1Before", 
+        "bytes");
+
+        public static Metric<TraceGC> TotalAllocated1After = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.LastOrDefault().TotalAllocated1; 
+        },
+        "TotalAllocated1After", 
+        "bytes");
+
+        public static Metric<TraceGC> TotalReserved2Before = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.FirstOrDefault().TotalReserved2; 
+        },
+        "TotalReserved2Before", 
+        "bytes");
+
+        public static Metric<TraceGC> TotalReserved2After = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.LastOrDefault().TotalReserved2; 
+        },
+        "TotalReserved2After", 
+        "bytes");
+
+        public static Metric<TraceGC> TotalAllocated2Before = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.FirstOrDefault().TotalAllocated2; 
+        },
+        "TotalAllocated2Before", 
+        "bytes");
+
+        public static Metric<TraceGC> TotalAllocated2After = new(gc => 
+        {
+            var events = new List<dynamic>(gc.DynamicEvents().FragmentationMeasurement);
+            if (events == null || events.Count == 0) return null;
+            return events.LastOrDefault().TotalAllocated2; 
+        },
+        "TotalAllocated2After", 
+        "bytes");
+
         // HeapCountSample
-        public static Metric<TraceGC> HcsElapsedTimeBetweenGCs = new(gc => gc.HeapCountSample.ElapsedTimeBetweenGCsMSec, "HCSampleElapsed", "ms");
+        /*
+        public static Metric<TraceGC> HcsElapsedTimeBetweenGCs = new(gc => gc.DynamicEvents()., "HCSampleElapsed", "ms");
         public static Metric<TraceGC> HcsGCIndex = new(gc => gc.HeapCountSample.GCIndex, "HCSampleGCIndex", "#");
         public static Metric<TraceGC> HcsGCPauseTime = new(gc => gc.HeapCountSample.GCPauseTimeMSec, "HCSampleGCPause", "ms");
         public static Metric<TraceGC> HcsMslWaitTime = new(gc => gc.HeapCountSample.MslWaitTimeMSec, "HCSampleGCMslWait", "ms");
@@ -603,6 +911,7 @@ public static class Metrics
         public static Metric<TraceGC> HctSpaceCostUp = new(gc => gc.HeapCountTuning?.SpaceCostPercentIncreasePerStepUp, "Space cost (up)TCP", "%");
         public static Metric<TraceGC> HctTPCostDown = new(gc => gc.HeapCountTuning?.ThroughputCostPercentIncreasePerStepDown, "TP cost (down)", "%");
         public static Metric<TraceGC> HctTPCostUp = new(gc => gc.HeapCountTuning?.ThroughputCostPercentReductionPerStepUp, "TP cost (up)", "%");
+        */
 
         public static Metric<TraceGC> HeapSizeAfter = new(gc => gc.HeapSizeAfterMB, "Heap size (after)", "MB");
         public static Metric<TraceGC> HeapSizeBefore = new(gc => gc.HeapSizeBeforeMB, "Heap size (before)", "MB");
@@ -675,6 +984,10 @@ public static class Metrics
         public static Metric<BenchmarkData> MaxPauseDurationBenchmark = Promote(Metrics.I.MaxPauseDuration, Aggregation.Max);
         public static Metric<BenchmarkData> MaxPercentPauseTimeInGC = Promote(Metrics.I.PercentPauseTimeInGC, Aggregation.Max);
         public static Metric<BenchmarkData> AveragePercentPauseTimeInGC = Promote(Metrics.I.PercentPauseTimeInGC, Aggregation.Average);
+        public static Metric<BenchmarkData> AverageRequestPerMSec = Promote(Metrics.I.RequestsPerMSec, Aggregation.Average);
+        public static Metric<BenchmarkData> AverageMaxHeapSize = Promote(Metrics.I.MaxHeapSizeMB, Aggregation.Average);
+        public static Metric<BenchmarkData> AverageP50Latency = Promote(Metrics.I.Latency50thMS, Aggregation.Average);
+        public static Metric<BenchmarkData> AverageMeanLatency = Promote(Metrics.I.MeanLatencyMS, Aggregation.Average);
     }
 
 }
@@ -790,7 +1103,6 @@ class BenchmarksChartType : ChartType<BenchmarkData>
 
     public override string GetColorFamilyId(SeriesInfo<BenchmarkData> info, bool multipleMetrics) => multipleMetrics ? $"{info.Metric.Title} / " : "";
     public override string GetSeriesTitle(SeriesInfo<BenchmarkData> info, string colorFamilyKey, bool multipleMetrics) => $"{GetColorFamilyId(info, multipleMetrics)}{colorFamilyKey}";
-
     public override string GetChartTitle() => "Per-benchmark behavior";
 
     public override List<KeyValuePair<string, BenchmarkData>> GetDataSource(SeriesInfo<BenchmarkData> info,
@@ -1145,9 +1457,9 @@ public abstract class TextPresenter : DataPresenter<List<List<string>>>
 
 public class RawTextPresenter : TextPresenter
 {
-    private const string borderStart = "+ ";
-    private const string borderDelim = "-+-";
-    private const string borderEnd = " +";
+    private const string borderStart = "| ";
+    private const string borderDelim = "-|-";
+    private const string borderEnd = " |";
 
     protected override string MakeTitle(string title) => title;
     protected override string? StartTable() => null;
@@ -1401,13 +1713,98 @@ public class ChartPresenter : DataPresenter<List<PlotlyChart>>
     public override void Finish(XArrangement xArrangement) => _charts.Add(Chart.Plot(_scatters, _layout));
 }
 
+public sealed class ComparerItem
+{
+    public string ConfigName { get; }
+    public string MetricName { get; }
+    public string Title { get; }
+    public string Unit { get; }
+    public string ColorFamilyKey { get; }
+    public string ColorFamilyId { get; }
+    public List<(XValue x, double? y)> Data { get; }
+
+    // Make use of new functions.
+    public ComparerItem(string configName, string metricName, string title, string unit, string colorFamilyKey, string colorFamilyId, List<(XValue x, double? y)> data)
+    {
+        // SeriesTitle: Average of Max heap size / datas_fix, Unit: MB, ColorFamilyKey: datas_fix, ColorFamilyId: Average of Max heap size / 
+        ConfigName = configName;
+        Title = title;
+        MetricName = metricName;
+        Unit = unit;
+        ColorFamilyKey = colorFamilyKey;
+        ColorFamilyId = colorFamilyId;
+        Data = data;
+    }
+
+    public override string ToString() => $"{ConfigName} {MetricName}";
+    public override int GetHashCode() => ConfigName.GetHashCode() ^ MetricName.GetHashCode();
+    public override bool Equals(object obj) => obj is ComparerItem other && (ConfigName == other.ConfigName) && (MetricName == other.MetricName);
+}
+
+public sealed class CompareInfo
+{
+    private readonly List<ComparerItem> _data = new();
+    private readonly List<(ComparerItem baseline, ComparerItem comparand)> _pairs = new();
+
+    // TODO: Add multiple comparands
+    public CompareInfo(string baselineConfig, string comparandConfig)
+    {
+        BaselineConfig = baselineConfig;
+        ComparandConfig = comparandConfig;
+    }
+
+    public void Add(ComparerItem item) 
+        => _data.Add(item);
+
+    public void GenerateSeries<TResult>(DataPresenter<TResult> presenter)
+    {
+        var baselines = _data.Where(d => d.ConfigName == BaselineConfig);
+
+        // Assumption: What if the baseline was missing?
+        // Console.WriteLine($"Baseline not found for: {b.ConfigName} {b.MetricName}");
+        foreach (var b in baselines)
+        {
+            // Get the Comparand.
+            var comparand = _data.FirstOrDefault(d => d.ConfigName == ComparandConfig && d.MetricName == b.MetricName);
+            if (comparand == null)
+            {
+                Console.WriteLine($"Comparand not found for: {b.ConfigName} {b.MetricName}");
+                presenter.AddSeries(b.Title, b.Unit, b.ColorFamilyKey, b.ColorFamilyId, b.Data);
+            }
+
+            else
+            {
+                List<(XValue x, double? y)> data = new();
+                // For each pair, generate the % Diff.
+                // TODO: Generalize to a custom calc.
+                foreach (var r in b.Data)
+                {
+                    (XValue xVal, double? y) comparer = comparand.Data.FirstOrDefault(d => d.x.Equals(r.x));
+                    data.Add((r.x, (comparer.y - r.y) / r.y * 100.0));
+                }
+
+                // Add baseline.
+                // TODO: Remove presenter.
+                presenter.AddSeries(b.Title, b.Unit, b.ColorFamilyKey, b.ColorFamilyId, b.Data);
+                // Add comparand.
+                presenter.AddSeries(comparand.Title, comparand.Unit, comparand.ColorFamilyKey, comparand.ColorFamilyId, comparand.Data);
+                // SeriesTitle: Average of Max heap size / datas_fix, Unit: MB, ColorFamilyKey: datas_fix, ColorFamilyId: Average of Max heap size / 
+                presenter.AddSeries(b.ColorFamilyId + " Comparison %", "%", b.ColorFamilyKey + " vs. " + comparand.ColorFamilyKey, comparand.ColorFamilyId, data);
+            }
+        }
+    }
+
+    public string BaselineConfig { get; }
+    public string ComparandConfig { get; }
+}
+
 TResult ChartInternal<TData, TResult>(DataPresenter<TResult> presenter, ChartType<TData> chartType,
     DataManager dataManager, List<Metric<TData>> metrics,
     Filter runFilter = null, Filter configFilter = null, Filter benchmarkFilter = null, IntFilter iterationFilter = null,
     ConfigIterationFilter configIterationFilter = null, Func<TData, bool> dataFilter = null, Func<string, string> benchmarkMap = null,
     BaseMetric<(string, TData), XValue> xMetric = null, XArrangement xArrangement = null,
     NameSimplifier configNameSimplifier = null, bool includeRunName = false,
-    bool display = true, bool debug = false)
+    bool display = true, bool debug = false, CompareInfo compareInfo = null)
 {
     runFilter = runFilter ?? Filter.All;
     configFilter = configFilter ?? Filter.All;
@@ -1477,7 +1874,6 @@ TResult ChartInternal<TData, TResult>(DataPresenter<TResult> presenter, ChartTyp
     foreach (var (benchmarkGroup, benchmarkList) in benchmarkGroups)
     {
         if (debug) Console.WriteLine("Initialize colors");
-
         // Consider moving 'colorGroups' to the presenter
         Dictionary<string, int> colorGroups = new();
         foreach (SeriesInfo<TData> info in
@@ -1511,6 +1907,9 @@ TResult ChartInternal<TData, TResult>(DataPresenter<TResult> presenter, ChartTyp
             double firstDataMin = 0;
             HashSet<XValue> firstDataSet = new();
 
+            Dictionary<ComparerItem, List<(XValue x, double? y)>> dataItems = compareInfo != null ? new() : null;
+
+            // Extract series from the configuration after filters.
             foreach ((SeriesInfo<TData> info, int indexForOffsetting) in
                 chartType.GetSeries(dataManager, metrics, runFilter: runFilter, configFilter: configFilter, benchmarkFilter: benchmarkFilter,
                     iterationFilter: iterationFilter, configIterationFilter: configIterationFilter, benchmarkList: benchmarkList).WithIndex())
@@ -1529,6 +1928,7 @@ TResult ChartInternal<TData, TResult>(DataPresenter<TResult> presenter, ChartTyp
                     Console.WriteLine($"No data for {titleWithoutPrefix} / {seriesTitle}");
                     continue;
                 }
+
                 int dataSourceCount = dataSource.Count;
                 if (debug) Console.Write($"source count = {dataSourceCount}, ");
 
@@ -1543,6 +1943,8 @@ TResult ChartInternal<TData, TResult>(DataPresenter<TResult> presenter, ChartTyp
                 //         exists in the DataManager but the metrics don't. (Example: we have ASP.NET metrics but
                 //         no GC trace for a benchmark, but the chart contains GC metrics)
                 info.Metric.ResetDiagnostics();
+
+                // TODO: This is what needs to be changed.
                 try { data = dataSource.Select(b => (x: xMetric.DoExtract((b.Key, b.Value)), y: info.Metric.DoExtract(b.Value, indexForOffsetting))).ToList(); }
                 catch { Console.WriteLine($"Exception processing data items for {title} / {seriesTitle}"); data = null; }
                 info.Metric.DisplayDiagnostics($"{titleWithoutPrefix} / {seriesTitle}");
@@ -1589,7 +1991,23 @@ TResult ChartInternal<TData, TResult>(DataPresenter<TResult> presenter, ChartTyp
                 }
 
                 string colorFamilyId = chartType.GetColorFamilyId(info, multipleMetrics: metrics.Count > 1);
-                presenter.AddSeries(title: seriesTitle, unit: info.Metric.Unit, colorFamilyKey: colorFamilyKey, colorFamilyId: colorFamilyId, data: data);
+
+                // This line extracts the x and y values from the data and adds them to the table.
+                if (compareInfo == null)
+                {
+                    presenter.AddSeries(title: seriesTitle, unit: info.Metric.Unit, colorFamilyKey: colorFamilyKey, colorFamilyId: colorFamilyId, data: data);
+                }
+
+                else
+                {
+                    compareInfo.Add(new ComparerItem(configName: colorFamilyKey, metricName: info.Metric.Title, unit: info.Metric.Unit, title: seriesTitle, colorFamilyKey: colorFamilyKey, colorFamilyId: colorFamilyId, data: data));
+                }
+            }
+
+            // Based on the comparer info, choose the comparer items collected - add them and the diff.
+            if (compareInfo != null)
+            {
+                compareInfo.GenerateSeries(presenter);
             }
 
             presenter.Finish(xArrangement);
@@ -1609,27 +2027,27 @@ List<List<string>> TableBenchmarks(DataManager dataManager, List<Metric<Benchmar
     ConfigIterationFilter configIterationFilter = null, Func<BenchmarkData, bool> dataFilter = null,
     Func<string, string> benchmarkMap = null, BaseMetric<(string, BenchmarkData), XValue> xMetric = null, XArrangement xArrangement = null,
     NameSimplifier configNameSimplifier = null, bool includeRunName = false,
-    bool display = true, bool debug = false)
+    bool display = true, bool debug = false, CompareInfo compareInfo = null)
     => ChartInternal(textPresenter ?? TextPresenter.RawText, new BenchmarksChartType(),
         dataManager, metrics,
         runFilter: runFilter, configFilter: configFilter, benchmarkFilter: benchmarkFilter, iterationFilter: iterationFilter,
         configIterationFilter: configIterationFilter, dataFilter: dataFilter,
         benchmarkMap: benchmarkMap, xMetric: xMetric, xArrangement: xArrangement,
         configNameSimplifier: configNameSimplifier, includeRunName: includeRunName,
-        display: display, debug: debug);
+        display: display, debug: debug, compareInfo: compareInfo);
 
 List<List<string>> TableBenchmarks(DataManager dataManager, Metric<BenchmarkData> metric, TextPresenter textPresenter = null,
     Filter runFilter = null, Filter configFilter = null, Filter benchmarkFilter = null, IntFilter iterationFilter = null,
     ConfigIterationFilter configIterationFilter = null, Func<BenchmarkData, bool> dataFilter = null,
     Func<string, string> benchmarkMap = null, BaseMetric<(string, BenchmarkData), XValue> xMetric = null, XArrangement xArrangement = null,
     NameSimplifier configNameSimplifier = null, bool includeRunName = false,
-    bool display = true, bool debug = false)
+    bool display = true, bool debug = false, CompareInfo compareInfo = null)
     => TableBenchmarks(dataManager, ML(metric), textPresenter,
         runFilter: runFilter, configFilter: configFilter, benchmarkFilter: benchmarkFilter, iterationFilter: iterationFilter,
         configIterationFilter: configIterationFilter, dataFilter: dataFilter,
         benchmarkMap: benchmarkMap, xMetric: xMetric, xArrangement: xArrangement,
         configNameSimplifier: configNameSimplifier, includeRunName: includeRunName,
-        display: display, debug: debug);
+        display: display, debug: debug, compareInfo: compareInfo);
 
 List<List<string>> TableIterations(DataManager dataManager, List<Metric<IterationData>> metrics, TextPresenter textPresenter = null,
     Filter runFilter = null, Filter configFilter = null, Filter benchmarkFilter = null, IntFilter iterationFilter = null,
